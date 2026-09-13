@@ -1,37 +1,24 @@
 name: Deploy Dori War
 
-# =========================================================
-# 돌이전쟁 GitHub Pages 자동 배포
-# =========================================================
-
 on:
-  # main 브랜치에 push되면 자동 배포
   push:
     branches:
       - main
 
-  # GitHub Actions 화면에서 수동 실행 가능
   workflow_dispatch:
 
-# GitHub Pages 배포에 필요한 권한
 permissions:
   contents: read
   pages: write
   id-token: write
 
-# 여러 번 push했을 때 이전 배포를 취소하고
-# 가장 최신 버전만 배포
 concurrency:
-  group: "pages"
+  group: pages
   cancel-in-progress: true
 
 jobs:
-
-  # =======================================================
-  # 배포
-  # =======================================================
   deploy:
-
+    name: Deploy to GitHub Pages
     runs-on: ubuntu-latest
 
     environment:
@@ -39,34 +26,21 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
-
-      # ---------------------------------------------------
-      # 1. Repository 가져오기
-      # ---------------------------------------------------
+      # Repository 가져오기
       - name: Checkout repository
         uses: actions/checkout@v4
 
-
-      # ---------------------------------------------------
-      # 2. GitHub Pages 설정
-      # ---------------------------------------------------
+      # GitHub Pages 설정
       - name: Setup GitHub Pages
         uses: actions/configure-pages@v5
 
-
-      # ---------------------------------------------------
-      # 3. Repository 전체를 Pages 업로드용으로 만들기
-      # ---------------------------------------------------
+      # Repository 전체 업로드
       - name: Upload website
         uses: actions/upload-pages-artifact@v3
         with:
           path: .
 
-
-      # ---------------------------------------------------
-      # 4. GitHub Pages 배포
-      # ---------------------------------------------------
+      # GitHub Pages 배포
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
- 
