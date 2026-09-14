@@ -1,18 +1,11 @@
-name: Universal GitHub Pages Deploy
+name: Deploy Dori War to GitHub Pages
 
 on:
   push:
     branches:
       - main
-      - master
 
   workflow_dispatch:
-    inputs:
-      site_path:
-        description: "Deploy folder (leave empty for automatic detection)"
-        required: false
-        default: ""
-        type: string
 
 permissions:
   contents: read
@@ -24,253 +17,95 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-
-  # ============================================================
-  # 1. Find the website automatically
-  # ============================================================
-
-  detect:
-    name: Detect Website
-    runs-on: ubuntu-latest
-
-    outputs:
-      site_path: ${{ steps.detect_site.outputs.site_path }}
-
-    steps:
-
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Detect website directory
-        id: detect_site
-        shell: bash
-        env:
-          MANUAL_PATH: ${{ inputs.site_path }}
-        run: |
-          set -euo pipefail
-
-          echo "========================================"
-          echo "Universal GitHub Pages Detector"
-          echo "========================================"
-
-          # ------------------------------------------------------
-          # Manual path
-          # ------------------------------------------------------
-
-          if [ -n "${MANUAL_PATH:-}" ]; then
-
-            if [ ! -d "$MANUAL_PATH" ]; then
-              echo ""
-              echo "ERROR: Manual path does not exist:"
-              echo "  $MANUAL_PATH"
-              exit 1
-            fi
-
-            if [ ! -f "$MANUAL_PATH/index.html" ]; then
-              echo ""
-              echo "ERROR: No index.html found in:"
-              echo "  $MANUAL_PATH"
-              exit 1
-            fi
-
-            SITE_PATH="$MANUAL_PATH"
-
-            echo ""
-            echo "Using manually selected website:"
-            echo "  $SITE_PATH"
-
-          else
-
-            SITE_PATH=""
-
-            # --------------------------------------------------
-            # Priority 1: Repository root
-            # --------------------------------------------------
-
-            if [ -f "./index.html" ]; then
-              SITE_PATH="."
-            fi
-
-            # --------------------------------------------------
-            # Priority 2: Common static-site directories
-            # --------------------------------------------------
-
-            if [ -z "$SITE_PATH" ]; then
-
-              for DIR in \
-                "./dist" \
-                "./build" \
-                "./public" \
-                "./docs" \
-                "./site" \
-                "./website" \
-                "./web" \
-                "./www"
-              do
-
-                if [ -f "$DIR/index.html" ]; then
-                  SITE_PATH="$DIR"
-                  break
-                fi
-
-              done
-
-            fi
-
-            # --------------------------------------------------
-            # Priority 3: Search entire repository
-            # --------------------------------------------------
-
-            if [ -z "$SITE_PATH" ]; then
-
-              echo ""
-              echo "Searching repository for index.html..."
-
-              while IFS= read -r -d '' FILE; do
-
-                DIR="$(dirname "$FILE")"
-
-                # Ignore dependency and Git directories
-                case "$DIR" in
-                  ./.git/*|./node_modules/*|./.github/*)
-                    continue
-                    ;;
-                esac
-
-                SITE_PATH="$DIR"
-                break
-
-              done < <(
-                find . \
-                  -type f \
-                  -name "index.html" \
-                  -not -path "./.git/*" \
-                  -not -path "./node_modules/*" \
-                  -not -path "./.github/*" \
-                  -print0
-              )
-
-            fi
-
-            # --------------------------------------------------
-            # Nothing found
-            # --------------------------------------------------
-
-            if [ -z "$SITE_PATH" ]; then
-
-              echo ""
-              echo "========================================"
-              echo "ERROR"
-              echo "========================================"
-              echo ""
-              echo "No index.html was found."
-              echo ""
-              echo "GitHub Pages requires a static website."
-              echo "Make sure your project contains:"
-              echo ""
-              echo "  index.html"
-              echo ""
-              exit 1
-
-            fi
-
-            echo ""
-            echo "Automatically detected website:"
-            echo "  $SITE_PATH"
-
-          fi
-
-          # ------------------------------------------------------
-          # Normalize path
-          # ------------------------------------------------------
-
-          SITE_PATH="${SITE_PATH#./}"
-
-          if [ -z "$SITE_PATH" ]; then
-            SITE_PATH="."
-          fi
-
-          echo ""
-          echo "Final deployment directory:"
-          echo "  $SITE_PATH"
-
-          echo "site_path=$SITE_PATH" >> "$GITHUB_OUTPUT"
-
-
-  # ============================================================
-  # 2. Build Pages artifact
-  # ============================================================
-
-  build:
-    name: Build Pages Artifact
-    runs-on: ubuntu-latest
-
-    needs:
-      - detect
-
-    steps:
-
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Configure GitHub Pages
-        uses: actions/configure-pages@v5
-
-      - name: Show deployment directory
-        shell: bash
-        env:
-          SITE_PATH: ${{ needs.detect.outputs.site_path }}
-        run: |
-          set -euo pipefail
-
-          echo "========================================"
-          echo "GitHub Pages Deployment"
-          echo "========================================"
-
-          echo ""
-          echo "Deploying:"
-          echo "  $SITE_PATH"
-
-          echo ""
-          echo "Contents:"
-
-          if [ "$SITE_PATH" = "." ]; then
-            find . \
-              -maxdepth 2 \
-              -not -path "./.git*" \
-              -not -path "./node_modules*" \
-              -print
-          else
-            find "$SITE_PATH" \
-              -maxdepth 2 \
-              -print
-          fi
-
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: ${{ needs.detect.outputs.site_path }}
-          name: github-pages
-          retention-days: 1
-
-
-  # ============================================================
-  # 3. Deploy
-  # ============================================================
-
   deploy:
-    name: Deploy to GitHub Pages
+    name: Build and Deploy
     runs-on: ubuntu-latest
-
-    needs:
-      - build
 
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
+      # ==========================================
+      # Checkout
+      # ==========================================
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Deploy GitHub Pages
+      # ==========================================
+      # Configure GitHub Pages
+      # ==========================================
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      # ==========================================
+      # Verify website
+      # ==========================================
+      - name: Verify website files
+        shell: bash
+        run: |
+          set -e
+
+          echo "======================================"
+          echo "Dori War - GitHub Pages"
+          echo "======================================"
+
+          echo ""
+          echo "Repository:"
+          pwd
+
+          echo ""
+          echo "Checking index.html..."
+
+          if [ ! -f "index.html" ]; then
+            echo "ERROR: index.html was not found!"
+            exit 1
+          fi
+
+          echo "OK: index.html"
+
+          echo ""
+          echo "Checking source directory..."
+
+          if [ -d "src" ]; then
+            echo "OK: src/"
+          else
+            echo "WARNING: src/ directory not found."
+          fi
+
+          echo ""
+          echo "Checking assets..."
+
+          if [ -d "assets" ]; then
+            echo "OK: assets/"
+          else
+            echo "WARNING: assets/ directory not found."
+          fi
+
+          echo ""
+          echo "Website structure:"
+          find . \
+            -maxdepth 2 \
+            -not -path "./.git*" \
+            -not -path "./node_modules*" \
+            -print
+
+          echo ""
+          echo "Verification complete."
+
+      # ==========================================
+      # Upload entire repository as Pages artifact
+      # ==========================================
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+          name: github-pages
+          retention-days: 1
+
+      # ==========================================
+      # Deploy
+      # ==========================================
+      - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
