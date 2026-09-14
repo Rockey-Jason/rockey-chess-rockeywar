@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict';
+import assert from 'node:assert/strict'; 
 import {createGame,createTestGame,legalMoves,legalAttacks,legalAbilities,applyAction,spawnBone,collectBone} from './src/engine.js';
 const P=(g,id)=>g.pieces.find(p=>p.id===id);
 const count=(g,t,k)=>g.pieces.filter(p=>p.team===t&&p.type===k).length;
