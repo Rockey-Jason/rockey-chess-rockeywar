@@ -306,6 +306,15 @@ function handleModeCell(r,c){const p=E.getPiece(G,selected);if(!p){mode=null;ren
   if(!q||q.team!==p.team||(mode.ability==='guard-redirect'&&q.type==='king')){toast('유효한 아군 대상을 선택하세요.');return}doAction({kind:'ability',id:p.id,ability:mode.ability,target:q.id})
 }
 
+function visualForPiece(p) {
+  if (!p) return { text: '', team: '' };
+
+  return {
+    text: S[p.type] || '',
+    team: p.team || ''
+  };
+}
+  
 function sourceAndDestination(a){
   const p=E.getPiece(G,a.id);if(!p)return null;const fromCell=cellAt(p.r,p.c);const dest=actionDestination(a);return {p,fromCell,dest,toCell:dest?cellAt(dest.r,dest.c):null,visual:visualForPiece(p)}
 }
